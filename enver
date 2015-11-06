@@ -1,0 +1,4 @@
+sudo apt-get upgrade
+sudo apt-get install python-pip python-crypto python-dev
+sudo pip install ansible list
+ssh-rsaを登録

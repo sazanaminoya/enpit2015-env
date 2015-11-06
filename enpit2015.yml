@@ -1,0 +1,160 @@
+---
+- hosts: all
+  sudo: yes
+  user: vagrant
+  handlers:
+    - name: restart nginx
+      service:
+        name: nginx
+        state:  restarted
+        enabled: yes
+    - name: restart uwsgi
+      shell: |
+        uwsgi enpit2015-uwsgi.ini
+      args:
+        chdir: /vagrant/development/WEB/application/var/www/app
+  tasks:
+    - name: install packages by apt-get
+      apt:
+        name: "{{ item }}"
+        update_cache: yes
+      with_items:
+        - dos2unix
+        - vim
+        - emacs
+        - git
+        - curl
+        - gcc
+        - make
+        - openssl
+        - libssl-dev
+        - libbz2-dev
+        - libreadline-dev
+        - libsqlite3-dev
+        - python
+        - python-dev
+        - python-pip
+        - libpcre3
+        - libpcre3-dev
+        # - uwsgi
+        # - uwsgi-plugin-python
+        # - python-bottle
+        - nginx
+        - postgresql
+        - postgresql-server-dev-all
+        - postgresql-plpython
+        - python-psycopg2
+        - python-pygresql
+    - name: clone pyenv
+      git:
+        repo: git://github.com/yyuu/pyenv.git
+        dest: /home/vagrant/.pyenv/
+        accept_hostkey: yes
+    - name: clone virtualenv
+      git:
+        repo: git://github.com/yyuu/pyenv-virtualenv.git
+        dest: /home/vagrant/.pyenv/plugins/pyenv-virtualenv/
+        accept_hostkey: yes
+    - name: "mkdir confdir"
+      file:
+        dest: "{{ item }}"
+        state: directory
+      with_items:
+        - /home/vagrant/.pyenv/versions
+        - /home/vagrant/.pyenv/shims
+    - name: enable pyenv command
+      lineinfile:
+        dest: /home/vagrant/.bashrc
+        create: yes
+        line:  "{{ item }}"
+      with_items:
+          - export PYENV_ROOT=\"$HOME/.pyenv\"
+          - export PATH=\"$PYENV_ROOT/bin:$PATH\"
+          - eval \"$(pyenv init -)\"
+    - name: install packages by pip
+      pip:
+        name: "{{ item }}"
+      with_items:
+        - uWSGI
+        - bottle
+        - jinja
+        - jinja2
+        # - python-nginx
+        # - py-postgresql
+        - psycopg2
+      notify:
+        - restart nginx
+        - restart uwsgi
+
+    # - name: set uwsgi file
+    #   copy:
+    #     src:  /vagrant/enpit2015-uwsgi.ini
+    #     dest: /etc/uwsgi/apps-available/enpit2015-uwsgi.ini
+    #     owner:  vagrant
+    #     group:  vagrant
+    #     mode: "u=rwx,g=rwx,o=rx"
+    #     force: no
+    # - name: ln uwsgi
+    #   shell: |
+    #     ln -fs /etc/uwsgi/apps-available/enpit2015-uwsgi.ini /etc/uwsgi/apps-enabled/enpit2015-uwsgi.ini
+    #   notify: restart uwsgi
+
+    - name: set nginx file
+      copy:
+        src:  /vagrant/enpit2015.com
+        dest: /etc/nginx/sites-available/enpit2015.com
+        owner:  www-data
+        group:  www-data
+        mode: "u=rwx,g=rwx,o=rx"
+        # force: no
+    - name: ln nginx
+      shell: |
+        ln -fs /etc/nginx/sites-available/enpit2015.com /etc/nginx/sites-enabled/enpit2015.com
+      notify:
+        - restart nginx
+        - restart uwsgi
+
+    - name: "mkdir socket"
+      file:
+        dest: "{{ item }}"
+        owner:  vagrant
+        group:  vagrant
+        mode: "u=rwx,g=rwx,o=rwx"
+        state: directory
+      with_items:
+        - /var/uwsgi/
+        - /var/uwsgi/sockets/
+        - /var/uwsgi/pids/
+
+    - name: "mk socket"
+      file:
+        # src:  /vagrant/enpit2015.sock
+        dest: /var/uwsgi/sockets/enpit2015.sock
+        owner:  www-data
+        group:  www-data
+        mode: "u=rwx,g=rwx,o=rwx"
+        state: file
+      notify:
+        - restart uwsgi
+
+
+    - name: "mk pid"
+      file:
+        # src:  /vagrant/enpit2015.pid
+        dest: /var/uwsgi/pids/enpit2015.pid
+        owner:  www-data
+        group:  www-data
+        mode: "u=rwx,g=rwx,o=rwx"
+        state: file
+      notify:
+        - restart uwsgi
+
+    - name: set ip
+      lineinfile:
+        dest: /etc/hosts
+        create: yes
+        line:  "{{ item }}"
+      with_items:
+          - "127.0.0.1	enpit2015.com"
+
+
